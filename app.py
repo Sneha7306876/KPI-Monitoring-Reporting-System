@@ -84,30 +84,30 @@ def calculate_kpis(df, date_col, kpi_cols, pre_start, pre_end, post_start, post_
         change_pct = (change / pre_mean * 100) if pre_mean != 0 else 0
         
         results['summary'][kpi] = {
-            'pre_mean': round(pre_mean, 2),
-            'post_mean': round(post_mean, 2),
-            'change': round(change, 2),
-            'change_pct': round(change_pct, 2),
-            'pre_total': round(pre_values.sum(), 2),
-            'post_total': round(post_values.sum(), 2)
+            'pre_mean': float(round(pre_mean, 2)),
+            'post_mean': float(round(post_mean, 2)),
+            'change': float(round(change, 2)),
+            'change_pct': float(round(change_pct, 2)),
+            'pre_total': float(round(pre_values.sum(), 2)),
+            'post_total': float(round(post_values.sum(), 2))
         }
         
         # Detailed statistics
         results['detailed'][kpi] = {
             'pre': {
-                'mean': round(pre_values.mean(), 2),
-                'median': round(pre_values.median(), 2),
-                'std': round(pre_values.std(), 2),
-                'min': round(pre_values.min(), 2),
-                'max': round(pre_values.max(), 2),
+                'mean': float(round(pre_values.mean(), 2)),
+                'median': float(round(pre_values.median(), 2)),
+                'std': float(round(pre_values.std(), 2)),
+                'min': float(round(pre_values.min(), 2)),
+                'max': float(round(pre_values.max(), 2)),
                 'count': int(len(pre_values))
             },
             'post': {
-                'mean': round(post_values.mean(), 2),
-                'median': round(post_values.median(), 2),
-                'std': round(post_values.std(), 2),
-                'min': round(post_values.min(), 2),
-                'max': round(post_values.max(), 2),
+                'mean': float(round(post_values.mean(), 2)),
+                'median': float(round(post_values.median(), 2)),
+                'std': float(round(post_values.std(), 2)),
+                'min': float(round(post_values.min(), 2)),
+                'max': float(round(post_values.max(), 2)),
                 'count': int(len(post_values))
             }
         }
@@ -120,7 +120,7 @@ def calculate_kpis(df, date_col, kpi_cols, pre_start, pre_end, post_start, post_
         
         results['trends'][kpi] = {
             'dates': trend_data[date_col].dt.strftime('%Y-%m-%d').tolist(),
-            'values': trend_data[kpi].tolist()
+            'values': [float(v) if not pd.isna(v) else None for v in trend_data[kpi].tolist()]
         }
     
     return results
