@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KPI Monitoring & Reporting System</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { background: linear-gradient(120deg, #e3f2fd 0%, #bbdefb 100%); font-family: 'Segoe UI', Arial, sans-serif; }
+        .container { max-width: 1300px; margin: auto; }
+        .card { margin-bottom: 24px; border-radius: 18px; box-shadow: 0 6px 24px rgba(0,0,0,0.08); border: none; }
+        .dashboard-card { background: #fff; border-radius: 16px; box-shadow: 0 2px 12px rgba(0,0,0,0.07); margin-bottom: 16px; }
+        .dashboard-card .card-title { font-size: 1.1em; color: #495057; margin-bottom: 8px; }
+        .dashboard-card .card-body { padding: 12px 8px 0 8px; }
+        .dashboard-row { display: flex; gap: 18px; justify-content: space-between; margin-bottom: 18px; }
+        .dashboard-row .col-md-2 { flex: 1; min-width: 180px; }
+        .dashboard-row canvas { max-width: 100%; }
+        table { font-size: 0.97em; background: #fff; border-radius: 10px; overflow: hidden; }
+        th { background: linear-gradient(90deg, #90caf9 60%, #42a5f5 100%); color: #fff; border: none; }
+        td, th { vertical-align: middle !important; }
+        .table-responsive { max-height: 500px; overflow-y: auto; border-radius: 10px; }
+        .nav-tabs .nav-link.active { background: #42a5f5; color: #fff; border: none; }
+        .nav-tabs .nav-link { color: #1976d2; border: none; }
+        .btn-primary { background: linear-gradient(90deg, #42a5f5 60%, #1976d2 100%); border: none; border-radius: 8px; }
+        .btn-success { background: linear-gradient(90deg, #64b5f6 60%, #388e3c 100%); border: none; border-radius: 8px; }
+        .form-control { margin-bottom: 10px; border-radius: 8px; }
+        h1, h5 { font-weight: 600; }
+        #dashboard h5 { font-size: 1.3em; margin-bottom: 18px; color: #1976d2; }
+        #kpiSelect { max-width: 350px; margin: 0 auto; }
+        @media (max-width: 900px) {
+            .dashboard-row { flex-direction: column; gap: 10px; }
+            .dashboard-row .col-md-2 { min-width: 100%; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-5">
+        <h1 class="text-center mb-4">KPI Monitoring & Reporting System</h1>
+        <div class="card p-4">
+            <h5>Upload File and Select Date Ranges</h5>
+            <div class="row">
+                <div class="col-md-6">
+                    <label for="fileInput" class="form-label">Select File (XLSX, XLSB, CSV)</label>
+                    <input type="file" class="form-control" id="fileInput" accept=".xlsx,.xlsb,.csv">
+                </div>
+            </div>
+            <div class="row mt-3" id="dateSelectors" style="display: none;">
+                <div class="col-md-3">
+                    <label for="preStart" class="form-label">Pre Start Date</label>
+                    <select class="form-control" id="preStart"></select>
+                </div>
+                <div class="col-md-3">
+                    <label for="preEnd" class="form-label">Pre End Date</label>
+                    <select class="form-control" id="preEnd"></select>
+                </div>
+                <div class="col-md-3">
+                    <label for="postStart" class="form-label">Post Start Date</label>
+                    <select class="form-control" id="postStart"></select>
+                </div>
+                <div class="col-md-3">
+                    <label for="postEnd" class="form-label">Post End Date</label>
+                    <select class="form-control" id="postEnd"></select>
+                </div>
+            </div>
+            <div class="mt-3">
+                <button class="btn btn-primary" onclick="processFile()">Generate Report</button>
+                <button class="btn btn-success" onclick="exportToCSV()">Export to CSV</button>
+                <button class="btn btn-info ms-2" onclick="exportToExcelPerSite()">Export Per Site (Excel)</button>
+            </div>
+        </div>
+
+        <ul class="nav nav-tabs mb-4" id="mainTabs">
+            <li class="nav-item">
+                <a class="nav-link active" id="reportTabBtn" data-bs-toggle="tab" href="#reportTab">Report</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" id="dashboardTabBtn" data-bs-toggle="tab" href="#dashboardTab">Dashboard</a>
+            </li>
+        </ul>
+        <div class="tab-content">
+            <div class="tab-pane fade show active" id="reportTab">
+                <div class="card p-4" id="reportCard" style="display: none;">
+                    <h5>Report: KPS001_1st_Sec_TB_2300</h5>
+                    <div class="table-responsive">
+                        <table class="table table-striped table-bordered" id="reportTable"></table>
+                    </div>
+                </div>
+            </div>
+            <div class="tab-pane fade" id="dashboardTab">
+                <div class="card p-4" id="dashboard">
+                    <h5>Dashboard</h5>
+                    <div class="dashboard-row" id="dashboardKpiRow">
+                        <!-- KPI buttons will be injected here -->
+                    </div>
+                    <div class="mt-4">
+                        <label for="kpiSelect" class="form-label">Select KPI for Chart</label>
+                        <select class="form-control" id="kpiSelect" onchange="generateDashboard()"></select>
+                        <canvas id="chart" class="mt-3" height="180"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="kpiDetailsModal" tabindex="-1" aria-labelledby="kpiDetailsModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="kpiDetailsModalLabel">KPI Details</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body" id="kpiDetailsBody">
+            <!-- KPI details will be injected here -->
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+        let data = [];
+        let kpis = [];
+        let preDates = [];
+        let postDates = [];
+        let availableDates = [];
+
+        function excelSerialToDate(serial) {
+            // Convert Excel serial date to DD-MMMM-YYYY format (e.g., 12-July-2026)
+            const date = new Date((serial - 25569) * 86400 * 1000);
+            return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' }).replace(/ /g, '-');
+        }
+
+        function processFile() {
+            const file = document.getElementById('fileInput').files[0];
+            if (!file) return alert('Please select a file.');
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const workbook = XLSX.read(e.target.result, { type: 'binary' });
+                    const sheetName = workbook.SheetNames[0];
+                    const sheet = workbook.Sheets[sheetName];
+                    data = XLSX.utils.sheet_to_json(sheet);
+
+                    // Convert dates if they are Excel serial numbers
+                    data.forEach(row => {
+                        if (typeof row.date === 'number') {
+                            row.date = excelSerialToDate(row.date);
+                        }
+                    });
+
+                    // Extract unique dates as strings and sort them
+                    availableDates = [...new Set(data.map(row => row.date))].sort();
+
+                    // Extract KPI columns (assuming columns after 'date')
+                    const headers = Object.keys(data[0]);
+                    const dateIndex = headers.indexOf('date');
+                    kpis = headers.slice(dateIndex + 1);
+
+                    // Populate date selectors
+                    populateDateSelectors();
+
+                    // Show date selectors
+                    document.getElementById('dateSelectors').style.display = 'block';
+
+                    // Note: Report generation will happen after date selection
+                } catch (error) {
+                    alert('Error processing file: ' + error.message);
+                }
+            };
+            reader.readAsBinaryString(file);
+        }
+
+        function populateDateSelectors() {
+            const selects = ['preStart', 'preEnd', 'postStart', 'postEnd'];
+            selects.forEach(id => {
+                const select = document.getElementById(id);
+                select.innerHTML = '<option value="">Select Date</option>';
+                availableDates.forEach((date, index) => {
+                    const option = document.createElement('option');
+                    option.value = index; // Use index to reference the date
+                    option.text = date;
+                    select.appendChild(option);
+                });
+            });
+        }
+
+        function generateReport() {
+            const preStartIndex = parseInt(document.getElementById('preStart').value);
+            const preEndIndex = parseInt(document.getElementById('preEnd').value);
+            const postStartIndex = parseInt(document.getElementById('postStart').value);
+            const postEndIndex = parseInt(document.getElementById('postEnd').value);
+
+            if (isNaN(preStartIndex) || isNaN(preEndIndex) || isNaN(postStartIndex) || isNaN(postEndIndex)) {
+                return alert('Please select all date ranges.');
+            }
+
+            preDates = availableDates.slice(preStartIndex, preEndIndex + 1);
+            postDates = availableDates.slice(postStartIndex, postEndIndex + 1);
+
+            const table = document.getElementById('reportTable');
+            table.innerHTML = '';
+
+            // Group data by KPI, then by Short name
+            const grouped = {};
+            kpis.forEach(kpi => {
+                grouped[kpi] = {};
+                data.forEach(row => {
+                    const cellName = row['Short name'];
+                    if (!grouped[kpi][cellName]) grouped[kpi][cellName] = {};
+                    const date = row.date;
+                    if (!grouped[kpi][cellName][date]) grouped[kpi][cellName][date] = 0;
+                    grouped[kpi][cellName][date] += parseFloat(row[kpi] || 0);
+                });
+            });
+
+            // Build table with merged headers
+            let tbody = '<thead>';
+            tbody += '<tr><th rowspan="2">KPI</th><th rowspan="2">TECH</th><th rowspan="2">Cell Name</th>';
+            tbody += `<th colspan="${preDates.length}">Pre</th><th colspan="${postDates.length}">Post</th>`;
+            tbody += '<th rowspan="2">Pre Avg</th><th rowspan="2">Post Avg</th><th rowspan="2">Delta</th><th rowspan="2">% Change</th><th rowspan="2">Remarks (Working Days KPIs)</th></tr>';
+            tbody += '<tr>';
+            preDates.forEach(date => tbody += `<th>${date}</th>`);
+            postDates.forEach(date => tbody += `<th>${date}</th>`);
+            tbody += '</tr></thead><tbody>';
+
+            kpis.forEach(kpi => {
+                const cells = Object.keys(grouped[kpi]);
+                cells.forEach(cellName => {
+                    const rowData = grouped[kpi][cellName];
+                    let preSum = 0, postSum = 0;
+                    preDates.forEach(date => preSum += rowData[date] || 0);
+                    postDates.forEach(date => postSum += rowData[date] || 0);
+                    const preAvg = preDates.length ? preSum / preDates.length : 0;
+                    const postAvg = postDates.length ? postSum / postDates.length : 0;
+                    const delta = postAvg - preAvg;
+                    const percentChange = preAvg ? ((delta / preAvg * 100).toFixed(2) + '%') : 'N/A';
+
+                    tbody += `<tr>`;
+                    tbody += `<td>${kpi}</td>`;
+                    tbody += `<td>${getTechFromCellName(cellName)}</td>`;
+                    tbody += `<td>${cellName}</td>`;
+                    preDates.forEach(date => tbody += `<td>${(rowData[date] || 0).toFixed(2)}</td>`);
+                    postDates.forEach(date => tbody += `<td>${(rowData[date] || 0).toFixed(2)}</td>`);
+                    tbody += `<td>${preAvg.toFixed(2)}</td><td>${postAvg.toFixed(2)}</td><td>${delta.toFixed(2)}</td><td>${percentChange}</td><td></td></tr>`;
+                });
+            });
+            tbody += '</tbody>';
+            table.innerHTML = tbody;
+
+            populateKpiSelect();
+            generateDashboard();
+            document.getElementById('reportCard').style.display = 'block';
+            document.getElementById('dashboard').style.display = 'block';
+        }
+
+        function exportToCSV() {
+            const table = document.getElementById('reportTable');
+            if (!table) return alert('No report to export.');
+            let csv = [];
+            // Export headers (fix: merge pre/post date headers under correct parent)
+            // First row: main headers
+            let mainHeaderRow = [];
+            for (let col of table.tHead.rows[0].cells) {
+                let span = col.colSpan > 1 ? Array(col.colSpan).fill(col.innerText) : [col.innerText];
+                mainHeaderRow = mainHeaderRow.concat(span);
+            }
+            csv.push(mainHeaderRow.join(','));
+            // Second row: subheaders (dates under Pre/Post)
+            if (table.tHead.rows.length > 1) {
+                let subHeaderRow = [];
+                let mainCells = table.tHead.rows[0].cells;
+                let subCells = table.tHead.rows[1].cells;
+                let subIdx = 0;
+                for (let i = 0; i < mainCells.length; i++) {
+                    let colSpan = mainCells[i].colSpan || 1;
+                    if (colSpan === 1) {
+                        subHeaderRow.push('');
+                    } else {
+                        for (let j = 0; j < colSpan; j++) {
+                            subHeaderRow.push(subCells[subIdx] ? subCells[subIdx].innerText : '');
+                            subIdx++;
+                        }
+                    }
+                }
+                csv.push(subHeaderRow.join(','));
+            }
+            // Export body rows exactly as in UI (no column changes)
+            for (let i = 0; i < table.tBodies[0].rows.length; i++) {
+                let cols = [];
+                for (let col of table.tBodies[0].rows[i].cells) {
+                    let val = col.innerText;
+                    cols.push('"' + val.replace(/"/g, '""') + '"'); // CSV escape
+                }
+                csv.push(cols.join(','));
+            }
+            const csvContent = '\uFEFF' + csv.join('\n'); // Add BOM for Excel compatibility
+            const blob = new Blob([csvContent], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'kpi_report.csv';
+            a.style.display = 'none';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+
+        function getTechFromCellName(cellName) {
+            if (!cellName) return '';
+            if (cellName.includes('RJ_E_F1')) return '2100';
+            if (cellName.includes('RJ_E_F3')) return '1800';
+            if (cellName.includes('RJ_E_F8')) return '900';
+            if (cellName.includes('RJ_E_T1')) return '2300';
+            if (cellName.includes('RJ_E_T2')) return '2300';
+            return '';
+        }
+
+        function getSiteIdFromCellName(cellName) {
+            // Extract Site ID from Short name, e.g., RJ_E_T1_IM_AUP001A_A => AUP001
+            if (!cellName) return '';
+            const match = cellName.match(/RJ_E_[A-Z0-9]+_IM_([A-Z0-9]{6})/);
+            if (match) return match[1].substring(0,6);
+            // Fallback: try to find 6 uppercase letters/digits after _IM_
+            const fallback = cellName.match(/_IM_([A-Z0-9]{6})/);
+            if (fallback) return fallback[1];
+            // Fallback: try to find 6 uppercase letters/digits anywhere
+            const generic = cellName.match(/([A-Z0-9]{6})/);
+            if (generic) return generic[1];
+            return '';
+        }
+
+        function exportToExcelPerSite() {
+            if (!data || !data.length) return alert('No report to export.');
+            if (!preDates.length || !postDates.length) return alert('Please generate the report first.');
+            // Group rows by Site ID
+            const siteGroups = {};
+            data.forEach(row => {
+                const cellName = row['Short name'];
+                const siteId = getSiteIdFromCellName(cellName);
+                if (!siteGroups[siteId]) siteGroups[siteId] = [];
+                siteGroups[siteId].push(row);
+            });
+            // Prepare workbook
+            const wb = XLSX.utils.book_new();
+            Object.keys(siteGroups).forEach(siteId => {
+                const rows = siteGroups[siteId];
+                // Build table data for this site, same as CSV export
+                // Group data by KPI, then by Short name (filtered by siteId)
+                const grouped = {};
+                kpis.forEach(kpi => {
+                    grouped[kpi] = {};
+                    rows.forEach(row => {
+                        const cellName = row['Short name'];
+                        if (!grouped[kpi][cellName]) grouped[kpi][cellName] = {};
+                        const date = row.date;
+                        if (!grouped[kpi][cellName][date]) grouped[kpi][cellName][date] = 0;
+                        grouped[kpi][cellName][date] += parseFloat(row[kpi] || 0);
+                    });
+                });
+                // Build header rows
+                let mainHeaderRow = ['KPI', 'TECH', 'Cell Name'];
+                mainHeaderRow = mainHeaderRow.concat(Array(preDates.length).fill('Pre'));
+                mainHeaderRow = mainHeaderRow.concat(Array(postDates.length).fill('Post'));
+                mainHeaderRow = mainHeaderRow.concat(['Pre Avg', 'Post Avg', 'Delta', '% Change', 'Remarks (Working Days KPIs)']);
+                let subHeaderRow = ['','',''];
+                preDates.forEach(date => subHeaderRow.push(date));
+                postDates.forEach(date => subHeaderRow.push(date));
+                subHeaderRow = subHeaderRow.concat(['','','','','']);
+                // Build body rows
+                let bodyRows = [];
+                kpis.forEach(kpi => {
+                    const cells = Object.keys(grouped[kpi]);
+                    cells.forEach(cellName => {
+                        const rowData = grouped[kpi][cellName];
+                        let preSum = 0, postSum = 0;
+                        preDates.forEach(date => preSum += rowData[date] || 0);
+                        postDates.forEach(date => postSum += rowData[date] || 0);
+                        const preAvg = preDates.length ? preSum / preDates.length : 0;
+                        const postAvg = postDates.length ? postSum / postDates.length : 0;
+                        const delta = postAvg - preAvg;
+                        const percentChange = preAvg ? ((delta / preAvg * 100).toFixed(2) + '%') : 'N/A';
+                        let rowArr = [kpi, getTechFromCellName(cellName), cellName];
+                        preDates.forEach(date => rowArr.push((rowData[date] || 0).toFixed(2)));
+                        postDates.forEach(date => rowArr.push((rowData[date] || 0).toFixed(2)));
+                        rowArr.push(preAvg.toFixed(2), postAvg.toFixed(2), delta.toFixed(2), percentChange, '');
+                        bodyRows.push(rowArr);
+                    });
+                });
+                // Combine all rows
+                const allRows = [mainHeaderRow, subHeaderRow, ...bodyRows];
+                // Convert to worksheet
+                const ws = XLSX.utils.aoa_to_sheet(allRows);
+                XLSX.utils.book_append_sheet(wb, ws, siteId);
+            });
+            // Export
+            XLSX.writeFile(wb, 'kpi_report_per_site.xlsx');
+        }
+
+        function populateKpiSelect() {
+            const select = document.getElementById('kpiSelect');
+            select.innerHTML = '';
+            kpis.forEach((kpi, idx) => {
+                const option = document.createElement('option');
+                option.value = kpi;
+                option.text = kpi;
+                select.appendChild(option);
+            });
+            // Also populate dashboard KPI buttons
+            const kpiRow = document.getElementById('dashboardKpiRow');
+            if (kpiRow) {
+                kpiRow.innerHTML = '';
+                kpis.forEach((kpi, idx) => {
+                    const btn = document.createElement('button');
+                    btn.className = 'btn btn-outline-primary m-1';
+                    btn.innerText = kpi;
+                    btn.onclick = function() {
+                        document.getElementById('kpiSelect').value = kpi;
+                        generateDashboard();
+                        showKpiDetailsModal(kpi);
+                    };
+                    kpiRow.appendChild(btn);
+                });
+            }
+        }
+
+        function generateDashboard() {
+            const ctx = document.getElementById('chart').getContext('2d');
+            const selectedKpi = document.getElementById('kpiSelect').value;
+            if (!selectedKpi) return;
+
+            // Group data by cell
+            const cellData = {};
+            data.forEach(row => {
+                const cellName = row['Short name'];
+                if (!cellData[cellName]) cellData[cellName] = { pre: [], post: [] };
+                const date = row.date;
+                if (preDates.includes(date)) cellData[cellName].pre.push(parseFloat(row[selectedKpi] || 0));
+                if (postDates.includes(date)) cellData[cellName].post.push(parseFloat(row[selectedKpi] || 0));
+            });
+
+            const labels = Object.keys(cellData);
+            const preAvgs = labels.map(cell => {
+                const vals = cellData[cell].pre;
+                return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
+            });
+            const postAvgs = labels.map(cell => {
+                const vals = cellData[cell].post;
+                return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
+            });
+
+            if (window.mainChart) window.mainChart.destroy();
+            window.mainChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        { label: 'Pre Avg', data: preAvgs, backgroundColor: 'rgba(54, 162, 235, 0.5)' },
+                        { label: 'Post Avg', data: postAvgs, backgroundColor: 'rgba(255, 99, 132, 0.5)' }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: { beginAtZero: true }
+                    }
+                }
+            });
+        }
+
+        function showKpiDetailsModal(kpi) {
+            // Gather detailed info for the selected KPI
+            let html = `<h6>${kpi}</h6>`;
+            html += '<table class="table table-bordered table-sm"><thead><tr><th>Cell Name</th><th>Pre Avg</th><th>Post Avg</th><th>Delta</th><th>% Change</th></tr></thead><tbody>';
+            // Group data by cell
+            const cellData = {};
+            data.forEach(row => {
+                const cellName = row['Short name'];
+                if (!cellData[cellName]) cellData[cellName] = { pre: [], post: [] };
+                const date = row.date;
+                if (preDates.includes(date)) cellData[cellName].pre.push(parseFloat(row[kpi] || 0));
+                if (postDates.includes(date)) cellData[cellName].post.push(parseFloat(row[kpi] || 0));
+            });
+            Object.keys(cellData).forEach(cell => {
+                const preVals = cellData[cell].pre;
+                const postVals = cellData[cell].post;
+                const preAvg = preVals.length ? preVals.reduce((a, b) => a + b, 0) / preVals.length : 0;
+                const postAvg = postVals.length ? postVals.reduce((a, b) => a + b, 0) / postVals.length : 0;
+                const delta = postAvg - preAvg;
+                const percentChange = preAvg ? ((delta / preAvg * 100).toFixed(2) + '%') : 'N/A';
+                html += `<tr><td>${cell}</td><td>${preAvg.toFixed(2)}</td><td>${postAvg.toFixed(2)}</td><td>${delta.toFixed(2)}</td><td>${percentChange}</td></tr>`;
+            });
+            html += '</tbody></table>';
+            document.getElementById('kpiDetailsBody').innerHTML = html;
+            var modal = new bootstrap.Modal(document.getElementById('kpiDetailsModal'));
+            modal.show();
+        }
+
+        // Attach generateReport to the button
+        document.querySelector('.btn-primary').onclick = function() {
+            if (data.length > 0) {
+                generateReport();
+            } else {
+                processFile();
+            }
+        };
+    </script>
+</body>
+</html>
