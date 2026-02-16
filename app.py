@@ -12,6 +12,8 @@ import json
 from werkzeug.utils import secure_filename
 import io
 
+import uuid
+
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = 'uploads'
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
@@ -20,7 +22,7 @@ app.config['ALLOWED_EXTENSIONS'] = {'csv', 'xlsx', 'xls'}
 # Create upload folder if it doesn't exist
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
-# Store uploaded data in memory (in production, use a database)
+# Store uploaded data in memory (in production, use a database with user isolation)
 data_store = {}
 
 
@@ -81,7 +83,7 @@ def calculate_kpis(df, date_col, kpi_cols, pre_start, pre_end, post_start, post_
         pre_mean = pre_values.mean()
         post_mean = post_values.mean()
         change = post_mean - pre_mean
-        change_pct = (change / pre_mean * 100) if pre_mean != 0 else 0
+        change_pct = ((change / pre_mean) * 100) if pre_mean != 0 else 0
         
         results['summary'][kpi] = {
             'pre_mean': float(round(pre_mean, 2)),
@@ -154,8 +156,8 @@ def upload_file():
         # Load and preview data
         df = load_data_file(filepath)
         
-        # Store data info
-        file_id = filename
+        # Store data info with unique ID
+        file_id = str(uuid.uuid4())
         data_store[file_id] = {
             'filepath': filepath,
             'columns': df.columns.tolist(),
@@ -299,4 +301,7 @@ def export_data(format):
 
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    # For development only - set debug=False in production
+    import os
+    debug_mode = os.environ.get('FLASK_DEBUG', 'False').lower() == 'true'
+    app.run(debug=debug_mode, host='0.0.0.0', port=5000)
